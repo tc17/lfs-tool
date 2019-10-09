@@ -1,5 +1,10 @@
-CPPFLAGS += -MD -MP 
-CFLAGS += -Wall -Wextra -Os -std=c11
+CPPFLAGS += -MD -MP
+CFLAGS += -Wall -Wextra -fexceptions -fstack-clash-protection -fstack-protector-strong -Werror=implicit-function-declaration
+CFLAGS += -Wfloat-equal -Wlogical-op -Wshift-overflow=2 -Wduplicated-cond -Wcast-qual -Wcast-align
+#CFLAGS += -Wconversion
+#CFLAGS += -fsanitize=address -fsanitize=undefined
+CFLAGS += -Wno-unused-parameter
+CFLAGS += -Os -std=c11
 CXXFLAGS += $(CFLAGS)
 
 SRCDIR = src
@@ -54,4 +59,3 @@ $(TST_DIRS):
 .PHONY: clean $(TEST_TARGET)
 clean:
 	$(RM) -r $(DEP) $(TARGET) $(OBJ) $(APP_DIRS) $(TEST_TARGET) $(TST_DIRS)
-
