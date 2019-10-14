@@ -3597,7 +3597,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
     lfs_mdir_t dir = {.tail = {0, 1}};
     while (!lfs_pair_isnull(dir.tail)) {
         // fetch next block in tail list
-        LFS_ERROR("before fetchmath %s", __func__);
         lfs_stag_t tag = lfs_dir_fetchmatch(lfs, &dir, dir.tail,
                 LFS_MKTAG(0x7ff, 0x3ff, 0),
                 LFS_MKTAG(LFS_TYPE_SUPERBLOCK, 0, 8),
@@ -3608,8 +3607,6 @@ int lfs_mount(lfs_t *lfs, const struct lfs_config *cfg) {
             err = tag;
             goto cleanup;
         }
-
-        LFS_ERROR("There is superblock %s", __func__);
 
         // has superblock?
         if (tag && !lfs_tag_isdelete(tag)) {
