@@ -15,3 +15,5 @@
 #pragma once
 
 #include "vfs.h"
+
+struct vfs *vfs_native_get(void);
