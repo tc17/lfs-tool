@@ -328,7 +328,7 @@ static struct vfs vfs_lfs = {
     .readdir = vfs_readdir
 };
 
-const struct vfs *vfs_lfs_get(const char *image)
+struct vfs *vfs_lfs_get(const char *image)
 {
     struct vfs *result = NULL;
 
