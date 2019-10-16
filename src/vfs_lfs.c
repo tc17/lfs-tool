@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #define BLOCK_SIZE 4096
 #define IO_SIZE 256
@@ -23,7 +24,7 @@ static int fs_prog(const struct lfs_config *c, lfs_block_t block,
 static int fs_erase(const struct lfs_config *c, lfs_block_t block);
 static int fs_sync(const struct lfs_config *c);
 
-static struct lfs_config lfs_config = {
+static struct lfs_config m_lfs_config = {
     .read = fs_read,
     .prog = fs_prog,
     .erase = fs_erase,
@@ -35,6 +36,8 @@ static struct lfs_config lfs_config = {
     .lookahead_size = IO_SIZE,
     .block_cycles = -1,
 };
+
+static struct context m_context = {0};
 
 static int fs_read(const struct lfs_config *c, lfs_block_t block,
                    lfs_off_t off, void *buffer, lfs_size_t size)
@@ -102,7 +105,7 @@ static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
     lfs_t *lfs = vfs->opaque;
     file = malloc(sizeof(*file));
 
-    CHECK_ERROR(file != NULL, -1, "malloc() failed");
+    CHECK_ERROR(file != NULL, NULL, "malloc() failed");
 
     int lfs_flags = 0;
     if (flags & O_RDONLY) {
@@ -125,7 +128,7 @@ static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
     }
 
     int err = lfs_file_open(lfs, file, pathname, lfs_flags);
-    CHECK_ERROR(err >= 0, -1, "lfs_file_open() failed: %d", err);
+    CHECK_ERROR(err >= 0, NULL, "lfs_file_open() failed: %d", err);
 
     result = file;
 
@@ -204,7 +207,7 @@ static int vfs_mount(struct vfs *vfs)
     lfs = malloc(sizeof(*lfs));
     CHECK_ERROR(lfs != NULL, -1, "malloc() failed");
 
-    result = lfs_mount(lfs, &lfs_config);
+    result = lfs_mount(lfs, &m_lfs_config);
     CHECK_ERROR(result == 0, -1, "lfs_mount() failed: %d", result);
 
 done:
@@ -324,3 +327,18 @@ static struct vfs vfs_lfs = {
     .closedir = vfs_closedir,
     .readdir = vfs_readdir
 };
+
+const struct vfs *vfs_lfs_get(const char *image)
+{
+    struct vfs *result = NULL;
+
+    m_context.file = fopen(image, "rb");
+    CHECK_ERROR(m_context.file != NULL, NULL, "fopen() failed: %s", strerror(errno));
+    m_lfs_config.context = &m_context;
+    m_lfs_config.block_count = 4059;
+
+    result = &vfs_lfs;
+
+done:
+    return result;
+}
