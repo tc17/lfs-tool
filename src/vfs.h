@@ -41,4 +41,5 @@ struct vfs
     void *(*opendir)(struct vfs *vfs, const char *path);
     int (*closedir)(struct vfs *vfs, void *dir);
     struct vfs_dirent *(*readdir)(struct vfs *vfs, void *dir);
+    int (*mkdir)(struct vfs *vfs, const char *pathname);
 };

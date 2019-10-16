@@ -36,7 +36,7 @@ static void usage(const char *name)
     fprintf(stderr, "Usage: %s <lfs image>\n", name);
 }
 
-static int mk_extract_dir(const char *path)
+static int mk_extract_dir(struct vfs *target_vfs, const char *path)
 {
     int result = 0;
 
@@ -46,8 +46,8 @@ static int mk_extract_dir(const char *path)
     strcpy_s(extract_path, extract_path_size, m_extract_path);
     strcat_s(extract_path, extract_path_size, path);
 
-    int err = mkdir(extract_path);
-    CHECK_ERROR(err == 0 || errno == EEXIST, -1, "mkdir() failed: %s", strerror(errno));
+    int err = target_vfs->mkdir(target_vfs, extract_path);
+    CHECK_ERROR(err == 0, -1, "target_vfs()->mkdir() failed: %d", err);
 
 done:
     free(extract_path);
@@ -134,7 +134,7 @@ static int traversal(struct vfs *vfs, struct vfs *target_vfs, const char *dir, c
         dir = path;
     }
 
-    int err = mk_extract_dir(dir);
+    int err = mk_extract_dir(target_vfs, dir);
     CHECK_ERROR(err == 0, -1, "mk_extract_dir() failed: %d", err);
 
     void *vfs_dir = vfs->opendir(vfs, dir);

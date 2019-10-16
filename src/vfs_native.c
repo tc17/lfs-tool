@@ -226,6 +226,20 @@ done:
     return result;
 }
 
+static int vfs_mkdir(struct vfs *vfs, const char *pathname)
+{
+    int result = 0;
+
+    CHECK_ERROR(vfs != NULL, -1, "vfs == NULL");
+    CHECK_ERROR(pathname != NULL, -1, "pathname == NULL");
+
+    int err = mkdir(pathname);
+    CHECK_ERROR(err == 0 || errno == EEXIST, -1, "mkdir() failed: %s", strerror(errno));
+
+done:
+    return result;
+}
+
 struct vfs m_vfs_native = {
     .open = vfs_open,
     .close = vfs_close,
@@ -235,7 +249,8 @@ struct vfs m_vfs_native = {
     .unmount = vfs_unmount,
     .opendir = vfs_opendir,
     .closedir = vfs_closedir,
-    .readdir = vfs_readdir
+    .readdir = vfs_readdir,
+    .mkdir = vfs_mkdir
 };
 
 struct vfs *vfs_native_get(void)

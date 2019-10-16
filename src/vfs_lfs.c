@@ -332,6 +332,23 @@ done:
     return result;
 }
 
+
+static int vfs_mkdir(struct vfs *vfs, const char *pathname)
+{
+    int result = 0;
+
+    CHECK_ERROR(vfs != NULL, -1, "vfs == NULL");
+    CHECK_ERROR(pathname != NULL, -1, "pathname == NULL");
+
+    lfs_t *lfs = vfs->opaque;
+
+    int err = lfs_mkdir(lfs, pathname);
+    CHECK_ERROR(err == 0 || err == LFS_ERR_EXIST, -1, "lfs_mkdir() failed: %d", err);
+
+done:
+    return result;
+}
+
 static struct vfs vfs_lfs = {
     .open = vfs_open,
     .close = vfs_close,
@@ -341,7 +358,8 @@ static struct vfs vfs_lfs = {
     .unmount = vfs_unmount,
     .opendir = vfs_opendir,
     .closedir = vfs_closedir,
-    .readdir = vfs_readdir
+    .readdir = vfs_readdir,
+    .mkdir = vfs_mkdir
 };
 
 struct vfs *vfs_lfs_get(const char *image)
