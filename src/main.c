@@ -8,6 +8,7 @@
 #include <fcntl.h>
 
 #include "lfs.h"
+#include "macro.h"
 
 #define BLOCK_SIZE 4096
 #define IO_SIZE 256
