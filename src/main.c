@@ -25,6 +25,7 @@
 #include <fcntl.h>
 
 #include "vfs_lfs.h"
+#include "vfs_native.h"
 #include "macro.h"
 
 static const char *m_extract_path = "extracted/";
@@ -53,15 +54,14 @@ done:
     return result;
 }
 
-static int extract_file(struct vfs *vfs, const char *dir, const char *file)
+static int extract_file(struct vfs *vfs, struct vfs *target_vfs, const char *dir, const char *file)
 {
     int result = 0;
 
     char *path = NULL;
     char *extracted_path = NULL;
-    void *vfs_file = NULL;
-    bool file_opened = false;
-    int out = -1;
+    void *in = NULL;
+    void *out = NULL;
 
     size_t path_size = strlen(dir) + strlen("/") + strlen(file) + 1;
     path = malloc(path_size);
@@ -78,17 +78,16 @@ static int extract_file(struct vfs *vfs, const char *dir, const char *file)
 
     INFO("extract: %s -> %s", path, extracted_path);
 
-    out = open(extracted_path, O_CREAT | O_TRUNC | O_WRONLY);
-    CHECK_ERROR(out >= 0, -1, "open() failed: %s", strerror(errno));
+    out = target_vfs->open(target_vfs, extracted_path, O_CREAT | O_TRUNC | O_WRONLY);
+    CHECK_ERROR(out != NULL, -1, "target_vfs->open() failed");
 
-    vfs_file = vfs->open(vfs, path, O_RDONLY);
-    CHECK_ERROR(vfs_file != NULL, -1, "vfs->open() failed");
-    file_opened = true;
+    in = vfs->open(vfs, path, O_RDONLY);
+    CHECK_ERROR(in != NULL, -1, "vfs->open() failed");
 
     int32_t rb = 0;
-    while ((rb = vfs->read(vfs, vfs_file, m_buffer, sizeof(m_buffer))) >= 0) {
-        ssize_t wb = write(out, m_buffer, rb);
-        CHECK_ERROR(wb == rb, -1, "write() failed: %s", strerror(errno));
+    while ((rb = vfs->read(vfs, in, m_buffer, sizeof(m_buffer))) >= 0) {
+        int32_t wb = target_vfs->write(target_vfs, out, m_buffer, rb);
+        CHECK_ERROR(wb == rb, -1, "target_vfs->write() failed");
         if (rb != sizeof(m_buffer)) {
             break;
         }
@@ -97,15 +96,16 @@ static int extract_file(struct vfs *vfs, const char *dir, const char *file)
     CHECK_ERROR(rb >= 0, -1, "vfs->read() failed: %d", rb);
 
 done:
-    if (file_opened) {
-        int err = vfs->close(vfs, vfs_file);
+    if (in != NULL) {
+        int err = vfs->close(vfs, in);
         if (err != 0) {
             ERROR("vfs->close() failed: %d", err);
         }
     }
-    if (out >= 0) {
-        if (close(out) != 0) {
-            ERROR("close(): %s", strerror(errno));
+    if (out != NULL) {
+        int err = target_vfs->close(vfs, out);
+        if (err != 0) {
+            ERROR("target_vfs()->close() failed: %d", err);
         }
     }
     free(path);
@@ -114,7 +114,7 @@ done:
     return result;
 }
 
-static int traversal(struct vfs *vfs, const char *dir, const char *subdir)
+static int traversal(struct vfs *vfs, struct vfs *target_vfs, const char *dir, const char *subdir)
 {
     int result = 0;
 
@@ -153,12 +153,12 @@ static int traversal(struct vfs *vfs, const char *dir, const char *subdir)
         printf("name: %s/%s, type: %s\n", dir, dirent->name, dirent->type == VFS_TYPE_FILE ? "FILE" : "DIR");
         if (dirent->type == VFS_TYPE_FILE)
         {
-            int err = extract_file(vfs, dir, dirent->name);
+            int err = extract_file(vfs, target_vfs, dir, dirent->name);
             CHECK_ERROR(err == 0, -1, "extract_file(.., %s, %s) failed: %d", dir, dirent->name, err);
         }
         else if (strcmp(dirent->name, ".") && strcmp(dirent->name, ".."))
         {
-            int err = traversal(vfs, dir, dirent->name);
+            int err = traversal(vfs, target_vfs, dir, dirent->name);
             CHECK_ERROR(err == 0, -1, "traversal(.., %s, %s) failed: %d", dir, dirent->name, err);
         }
     };
@@ -191,12 +191,13 @@ int main(int argc, char **argv)
     const char *filename = argv[1];
 
     struct vfs *vfs_lfs = vfs_lfs_get(filename);
+    struct vfs *vfs_native = vfs_native_get();
 
     int err = vfs_lfs->mount(vfs_lfs);
     CHECK_ERROR(err == 0, EXIT_FAILURE, "vfs->mount() failed: %d", err);
     mounted = true;
 
-    traversal(vfs_lfs, "/", NULL);
+    traversal(vfs_lfs, vfs_native, "/", NULL);
 
 done:
     if (mounted) {

@@ -49,6 +49,8 @@ static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
     file->fd = open(pathname, flags);
     CHECK_ERROR(file->fd >= 0, NULL, "open() failed: %s", strerror(errno));
 
+    result = file;
+
 done:
     if (result == NULL) {
         free(file);
@@ -216,6 +218,8 @@ static struct vfs_dirent *vfs_readdir(struct vfs *vfs, void *dir)
         strcpy_s(vfs_dirent.name, sizeof(vfs_dirent.name), dirent->d_name);
         vfs_dirent.type = S_ISREG(stat_.st_mode) ? VFS_TYPE_FILE : VFS_TYPE_DIR;
     }
+
+    result = &vfs_dirent;
 
 done:
     free(buf);
