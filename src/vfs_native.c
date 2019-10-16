@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "macro.h"
+#include "util.h"
 
 struct vfs_file {
     int fd;
@@ -39,28 +40,6 @@ struct vfs_context {
 };
 
 struct vfs_context m_context = {0};
-
-static char *append_dir(const char *dir, const char *path)
-{
-    char *result = NULL;
-
-    CHECK_ERROR(dir != NULL, NULL, "dir == NULL");
-    CHECK_ERROR(path != NULL, NULL, "path != NULL");
-
-    size_t result_size = strlen(dir) + strlen(path) + strlen("/") + 1;
-    result = malloc(result_size);
-
-    CHECK_ERROR(result != NULL, NULL, "malloc() failed");
-
-    strcpy_s(result, result_size, dir);
-    if (strlen(dir) > 0 && dir[strlen(dir) - 1] == '/') {
-        strcat_s(result, result_size, "/");
-    }
-    strcat_s(result, result_size, path);
-
-done:
-    return result;
-}
 
 static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
 {
@@ -78,8 +57,8 @@ static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
     file = malloc(sizeof(*file));
     CHECK_ERROR(file != NULL, NULL, "malloc() failed");
 
-    path = append_dir(context->path, pathname);
-    CHECK_ERROR(path != NULL, NULL, "append_dir() failed");
+    path = append_dir_alloc(context->path, pathname);
+    CHECK_ERROR(path != NULL, NULL, "append_dir_alloc() failed");
 
     file->fd = open(path, flags);
     CHECK_ERROR(file->fd >= 0, NULL, "open() failed: %s", strerror(errno));
@@ -182,8 +161,8 @@ static void *vfs_opendir(struct vfs *vfs, const char *pathname)
     vfs_dir = malloc(sizeof(*vfs_dir));
     CHECK_ERROR(vfs_dir != NULL, NULL, "malloc() failed");
 
-    path = append_dir(context->path, pathname);
-    CHECK_ERROR(path != NULL, NULL, "append_dir() failed");
+    path = append_dir_alloc(context->path, pathname);
+    CHECK_ERROR(path != NULL, NULL, "append_dir_alloc() failed");
 
     DIR *dir = opendir(path);
     CHECK_ERROR(dir != NULL, NULL, "opendir() failed: %s", strerror(errno));
@@ -278,7 +257,7 @@ static int vfs_mkdir(struct vfs *vfs, const char *pathname)
     struct vfs_context *context = vfs->opaque;
     CHECK_ERROR(context != NULL, -1, "context == NULL");
 
-    path = append_dir(context->path, pathname);
+    path = append_dir_alloc(context->path, pathname);
 
     int err = mkdir(path);
     CHECK_ERROR(err == 0 || errno == EEXIST, -1, "mkdir() failed: %s", strerror(errno));
