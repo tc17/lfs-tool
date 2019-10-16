@@ -16,4 +16,4 @@
 
 #include "vfs.h"
 
-struct vfs *vfs_native_get(void);
+struct vfs *vfs_native_get(const char *path);

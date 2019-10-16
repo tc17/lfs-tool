@@ -34,24 +34,61 @@ struct vfs_dir {
     char *dirname;
 };
 
+struct vfs_context {
+    const char *path;
+};
+
+struct vfs_context m_context = {0};
+
+static char *append_dir(const char *dir, const char *path)
+{
+    char *result = NULL;
+
+    CHECK_ERROR(dir != NULL, NULL, "dir == NULL");
+    CHECK_ERROR(path != NULL, NULL, "path != NULL");
+
+    size_t result_size = strlen(dir) + strlen(path) + strlen("/") + 1;
+    result = malloc(result_size);
+
+    CHECK_ERROR(result != NULL, NULL, "malloc() failed");
+
+    strcpy_s(result, result_size, dir);
+    if (strlen(dir) > 0 && dir[strlen(dir) - 1] == '/') {
+        strcat_s(result, result_size, "/");
+    }
+    strcat_s(result, result_size, path);
+
+done:
+    return result;
+}
+
 static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
 {
     void *result = NULL;
 
     struct vfs_file *file = NULL;
+    char *path = NULL;
 
     CHECK_ERROR(vfs != NULL, NULL, "vfs == NULL");
     CHECK_ERROR(pathname != NULL, NULL, "pathname == NULL");
 
+    struct vfs_context *context = vfs->opaque;
+    CHECK_ERROR(context != NULL, NULL, "context == NULL");
+
     file = malloc(sizeof(*file));
     CHECK_ERROR(file != NULL, NULL, "malloc() failed");
 
-    file->fd = open(pathname, flags);
+    path = append_dir(context->path, pathname);
+    CHECK_ERROR(path != NULL, NULL, "append_dir() failed");
+
+    file->fd = open(path, flags);
     CHECK_ERROR(file->fd >= 0, NULL, "open() failed: %s", strerror(errno));
 
     result = file;
 
 done:
+    free(path);
+
     if (result == NULL) {
         free(file);
     }
@@ -129,33 +166,36 @@ done:
     return result;
 }
 
-static void *vfs_opendir(struct vfs *vfs, const char *path)
+static void *vfs_opendir(struct vfs *vfs, const char *pathname)
 {
     void *result = NULL;
 
     struct vfs_dir *vfs_dir = NULL;
+    char *path = NULL;
 
     CHECK_ERROR(vfs != NULL, NULL, "vfs == NULL");
-    CHECK_ERROR(path != NULL, NULL, "path == NULL");
+    CHECK_ERROR(pathname != NULL, NULL, "path == NULL");
+
+    struct vfs_context *context = vfs->opaque;
+    CHECK_ERROR(context != NULL, NULL, "context == NULL");
 
     vfs_dir = malloc(sizeof(*vfs_dir));
     CHECK_ERROR(vfs_dir != NULL, NULL, "malloc() failed");
 
+    path = append_dir(context->path, pathname);
+    CHECK_ERROR(path != NULL, NULL, "append_dir() failed");
+
     DIR *dir = opendir(path);
     CHECK_ERROR(dir != NULL, NULL, "opendir() failed: %s", strerror(errno));
 
-    vfs_dir->dirname = strdup(path);
-    CHECK_ERROR(vfs_dir->dirname != NULL, NULL, "strdup() failed");
-
+    vfs_dir->dirname = path;
     vfs_dir->dir = dir;
     result = vfs_dir;
 
 done:
     if (result == NULL) {
-        if (vfs_dir != NULL) {
-            free(vfs_dir->dirname);
-            free(vfs_dir);
-        }
+        free(path);
+        free(vfs_dir);
     }
     return result;
 }
@@ -230,13 +270,22 @@ static int vfs_mkdir(struct vfs *vfs, const char *pathname)
 {
     int result = 0;
 
+    char *path = NULL;
+
     CHECK_ERROR(vfs != NULL, -1, "vfs == NULL");
     CHECK_ERROR(pathname != NULL, -1, "pathname == NULL");
 
-    int err = mkdir(pathname);
+    struct vfs_context *context = vfs->opaque;
+    CHECK_ERROR(context != NULL, -1, "context == NULL");
+
+    path = append_dir(context->path, pathname);
+
+    int err = mkdir(path);
     CHECK_ERROR(err == 0 || errno == EEXIST, -1, "mkdir() failed: %s", strerror(errno));
 
 done:
+    free(path);
+
     return result;
 }
 
@@ -253,7 +302,19 @@ struct vfs m_vfs_native = {
     .mkdir = vfs_mkdir
 };
 
-struct vfs *vfs_native_get(void)
+
+//TODO: replace with init/fini
+
+struct vfs *vfs_native_get(const char *path)
 {
-    return &m_vfs_native;
+    struct vfs *result = NULL;
+
+    CHECK_ERROR(path != NULL, NULL, "path == NULL");
+
+    m_context.path = path;
+    m_vfs_native.opaque = &m_context;
+
+    result = &m_vfs_native;
+done:
+    return result;
 }

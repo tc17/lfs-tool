@@ -36,30 +36,11 @@ static void usage(const char *name)
     fprintf(stderr, "Usage: %s <lfs image>\n", name);
 }
 
-static int mk_extract_dir(struct vfs *target_vfs, const char *path)
-{
-    int result = 0;
-
-    size_t extract_path_size = strlen(m_extract_path) + strlen(path) + 1;
-    char * extract_path = malloc(extract_path_size);
-
-    strcpy_s(extract_path, extract_path_size, m_extract_path);
-    strcat_s(extract_path, extract_path_size, path);
-
-    int err = target_vfs->mkdir(target_vfs, extract_path);
-    CHECK_ERROR(err == 0, -1, "target_vfs()->mkdir() failed: %d", err);
-
-done:
-    free(extract_path);
-    return result;
-}
-
 static int extract_file(struct vfs *vfs, struct vfs *target_vfs, const char *dir, const char *file)
 {
     int result = 0;
 
     char *path = NULL;
-    char *extracted_path = NULL;
     void *in = NULL;
     void *out = NULL;
 
@@ -70,15 +51,9 @@ static int extract_file(struct vfs *vfs, struct vfs *target_vfs, const char *dir
     strcat_s(path, path_size, "/");
     strcat_s(path, path_size, file);
 
-    size_t extracted_path_size = path_size + strlen(m_extract_path);
-    extracted_path = malloc(extracted_path_size);
+    INFO("extract: %s", path);
 
-    strcpy_s(extracted_path, extracted_path_size, m_extract_path);
-    strcat_s(extracted_path, extracted_path_size, path);
-
-    INFO("extract: %s -> %s", path, extracted_path);
-
-    out = target_vfs->open(target_vfs, extracted_path, O_CREAT | O_TRUNC | O_WRONLY);
+    out = target_vfs->open(target_vfs, path, O_CREAT | O_TRUNC | O_WRONLY);
     CHECK_ERROR(out != NULL, -1, "target_vfs->open() failed");
 
     in = vfs->open(vfs, path, O_RDONLY);
@@ -109,7 +84,6 @@ done:
         }
     }
     free(path);
-    free(extracted_path);
 
     return result;
 }
@@ -134,8 +108,8 @@ static int traversal(struct vfs *vfs, struct vfs *target_vfs, const char *dir, c
         dir = path;
     }
 
-    int err = mk_extract_dir(target_vfs, dir);
-    CHECK_ERROR(err == 0, -1, "mk_extract_dir() failed: %d", err);
+    int err = target_vfs->mkdir(target_vfs, dir);
+    CHECK_ERROR(err == 0, -1, "target_vfs->mkdir() failed: %d", err);
 
     void *vfs_dir = vfs->opendir(vfs, dir);
     CHECK_ERROR(vfs_dir != NULL, -1, "vfs->opendir() failed");
@@ -191,7 +165,7 @@ int main(int argc, char **argv)
     const char *filename = argv[1];
 
     struct vfs *vfs_lfs = vfs_lfs_get(filename);
-    struct vfs *vfs_native = vfs_native_get();
+    struct vfs *vfs_native = vfs_native_get(m_extract_path);
 
     int err = vfs_lfs->mount(vfs_lfs);
     CHECK_ERROR(err == 0, EXIT_FAILURE, "vfs->mount() failed: %d", err);

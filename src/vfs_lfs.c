@@ -105,10 +105,6 @@ static int fs_sync(const struct lfs_config *c)
     return fflush(context->file) != EOF ? 0 : -1;
 }
 
-struct vfs_lfs_object {
-
-};
-
 static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
 {
     void *result = NULL;
