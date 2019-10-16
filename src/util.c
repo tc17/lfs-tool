@@ -35,7 +35,7 @@ char *append_dir_alloc(const char *dir, const char *path)
     CHECK_ERROR(result != NULL, NULL, "malloc() failed");
 
     strcpy_s(result, result_size, dir);
-    if (strlen(dir) > 0 && dir[strlen(dir) - 1] == '/') {
+    if (strlen(dir) > 0 && dir[strlen(dir) - 1] != '/') {
         strcat_s(result, result_size, "/");
     }
     strcat_s(result, result_size, path);

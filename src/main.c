@@ -27,6 +27,7 @@
 #include "vfs_lfs.h"
 #include "vfs_native.h"
 #include "macro.h"
+#include "util.h"
 
 static const char *m_extract_path = "extracted/";
 static uint8_t m_buffer[4096];
@@ -36,22 +37,14 @@ static void usage(const char *name)
     fprintf(stderr, "Usage: %s <lfs image>\n", name);
 }
 
-static int extract_file(struct vfs *vfs, struct vfs *target_vfs, const char *dir, const char *file)
+static int process_file(struct vfs *vfs, struct vfs *target_vfs, const char *path)
 {
     int result = 0;
 
-    char *path = NULL;
     void *in = NULL;
     void *out = NULL;
 
-    size_t path_size = strlen(dir) + strlen("/") + strlen(file) + 1;
-    path = malloc(path_size);
-
-    strcpy_s(path, path_size, dir);
-    strcat_s(path, path_size, "/");
-    strcat_s(path, path_size, file);
-
-    INFO("extract: %s", path);
+    INFO("process: %s", path);
 
     out = target_vfs->open(target_vfs, path, O_CREAT | O_TRUNC | O_WRONLY);
     CHECK_ERROR(out != NULL, -1, "target_vfs->open() failed");
@@ -83,37 +76,22 @@ done:
             ERROR("target_vfs()->close() failed: %d", err);
         }
     }
-    free(path);
 
     return result;
 }
 
-static int traversal(struct vfs *vfs, struct vfs *target_vfs, const char *dir, const char *subdir)
+static int traversal(struct vfs *vfs, struct vfs *target_vfs, const char *dir)
 {
     int result = 0;
 
-    bool opened = false;
     char *path = NULL;
-
-    if (subdir) {
-        size_t path_size = strlen(dir) + strlen("/") + strlen(subdir) + 1;
-        path = malloc(path_size);
-        CHECK_ERROR(path != NULL, -1, "malloc() failed");
-
-        strcpy_s(path, path_size, dir);
-        if (dir[strlen(dir) - 1] != '/') {
-            strcat_s(path, path_size, "/");
-        }
-        strcat_s(path, path_size, subdir);
-        dir = path;
-    }
+    void *vfs_dir = NULL;
 
     int err = target_vfs->mkdir(target_vfs, dir);
     CHECK_ERROR(err == 0, -1, "target_vfs->mkdir() failed: %d", err);
 
-    void *vfs_dir = vfs->opendir(vfs, dir);
+    vfs_dir = vfs->opendir(vfs, dir);
     CHECK_ERROR(vfs_dir != NULL, -1, "vfs->opendir() failed");
-    opened = true;
 
     INFO("traverse %s", dir);
 
@@ -124,29 +102,37 @@ static int traversal(struct vfs *vfs, struct vfs *target_vfs, const char *dir, c
             break;
         }
 
-        printf("name: %s/%s, type: %s\n", dir, dirent->name, dirent->type == VFS_TYPE_FILE ? "FILE" : "DIR");
+        path = append_dir_alloc(dir, dirent->name);
+        CHECK_ERROR(path != NULL, -1, "append_dir_alloc() failed");
+
+        INFO("name: %s, type: %s", path, dirent->type == VFS_TYPE_FILE ? "FILE" : "DIR");
+
         if (dirent->type == VFS_TYPE_FILE)
         {
-            int err = extract_file(vfs, target_vfs, dir, dirent->name);
-            CHECK_ERROR(err == 0, -1, "extract_file(.., %s, %s) failed: %d", dir, dirent->name, err);
+            int err = process_file(vfs, target_vfs, path);
+            CHECK_ERROR(err == 0, -1, "process_file(.., %s) failed: %d", path, err);
         }
         else if (strcmp(dirent->name, ".") && strcmp(dirent->name, ".."))
         {
-            int err = traversal(vfs, target_vfs, dir, dirent->name);
-            CHECK_ERROR(err == 0, -1, "traversal(.., %s, %s) failed: %d", dir, dirent->name, err);
+            int err = traversal(vfs, target_vfs, path);
+            CHECK_ERROR(err == 0, -1, "traversal(.., %s) failed: %d", path, err);
         }
+
+        free(path);
+        path = NULL;
     };
 
     CHECK_ERROR(dirent != NULL, -1, "vfs->readdir() failed");
 
 done:
-    if (opened) {
+    free(path);
+
+    if (vfs_dir != NULL) {
         int err = vfs->closedir(vfs, vfs_dir);
         if (err != 0) {
             ERROR("vfs->closedir() failed: %d", err);
         }
     }
-    free(path);
     return result;
 }
 
@@ -171,7 +157,7 @@ int main(int argc, char **argv)
     CHECK_ERROR(err == 0, EXIT_FAILURE, "vfs->mount() failed: %d", err);
     mounted = true;
 
-    traversal(vfs_lfs, vfs_native, "/", NULL);
+    traversal(vfs_lfs, vfs_native, "/");
 
 done:
     if (mounted) {
