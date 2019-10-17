@@ -17,6 +17,7 @@
 #include "vfs_lfs.h"
 
 #include "macro.h"
+#include "compat.h"
 #include "vfs.h"
 #include "lfs.h"
 
@@ -24,6 +25,8 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #define BLOCK_SIZE 4096
 #define IO_SIZE 256

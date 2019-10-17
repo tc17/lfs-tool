@@ -1,4 +1,5 @@
 CPPFLAGS += -MD -MP
+CPPFLAGS += -D_XOPEN_SOURCE=700
 CFLAGS += -Wall -Wextra -fexceptions -fstack-clash-protection -fstack-protector-strong -Werror=implicit-function-declaration
 CFLAGS += -Wfloat-equal -Wlogical-op -Wshift-overflow=2 -Wduplicated-cond -Wcast-qual -Wcast-align
 #CFLAGS += -Wconversion

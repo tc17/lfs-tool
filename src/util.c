@@ -16,11 +16,12 @@
 
 #include "util.h"
 
+#include "macro.h"
+#include "compat.h"
+
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include "macro.h"
 
 char *append_dir_alloc(const char *dir, const char *path)
 {

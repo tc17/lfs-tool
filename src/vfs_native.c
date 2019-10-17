@@ -16,15 +16,19 @@
 
 #include "vfs_native.h"
 
+#include "compat.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <dirent.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "macro.h"
 #include "util.h"
+
 
 struct vfs_file {
     int fd;
@@ -60,7 +64,11 @@ static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
     path = append_dir_alloc(context->path, pathname);
     CHECK_ERROR(path != NULL, NULL, "append_dir_alloc() failed");
 
+#ifdef _WIN32
     file->fd = open(path, flags);
+#else
+    file->fd = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+#endif
     CHECK_ERROR(file->fd >= 0, NULL, "open() failed: %s", strerror(errno));
 
     result = file;
@@ -254,7 +262,11 @@ static int vfs_mkdir(struct vfs *vfs, const char *pathname)
 
     path = append_dir_alloc(context->path, pathname);
 
+#ifdef _WIN32
     int err = mkdir(path);
+#else
+    int err = mkdir(path, S_IRWXU | S_IRWXG | S_IRWXO);
+#endif
     CHECK_ERROR(err == 0 || errno == EEXIST, -1, "mkdir() failed: %s", strerror(errno));
 
 done:
