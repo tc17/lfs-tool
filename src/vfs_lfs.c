@@ -67,7 +67,7 @@ static int fs_read(const struct lfs_config *c, lfs_block_t block,
     CHECK_ERROR(err == 0, -1, "fseek() failed: %d", err);
 
     size_t bytes = fread(buffer, 1, size, context->file);
-    CHECK_ERROR(bytes == size, -1, "fread() failed");
+    CHECK_ERROR(bytes == size, -1, "fread() failed: off: %u, size: %u, bytes: %u", off, size, bytes);
 
     //INFO("read block: %u, off: %u", block, off);
     //INFO("read offset: %u, size: %u", offset, size);
@@ -358,14 +358,27 @@ static struct vfs vfs_lfs = {
     .mkdir = vfs_mkdir
 };
 
-struct vfs *vfs_lfs_get(const char *image)
+struct vfs *vfs_lfs_get(const char *image, bool write)
 {
     struct vfs *result = NULL;
 
-    m_context.file = fopen(image, "rb");
+    m_context.file = fopen(image, write ? "w+b" : "rb");
     CHECK_ERROR(m_context.file != NULL, NULL, "fopen() failed: %s", strerror(errno));
+
     m_lfs_config.context = &m_context;
     m_lfs_config.block_count = 4059;
+
+    if (write) {
+        int err = fseek(m_context.file, m_lfs_config.block_size * m_lfs_config.block_count - 1 , SEEK_SET);
+        CHECK_ERROR(err == 0, NULL, "fseek() failed: %s", strerror(errno));
+        uint8_t zero = 0;
+        size_t written = fwrite(&zero, 1, sizeof(zero), m_context.file);
+        CHECK_ERROR(written == sizeof(zero), NULL, "fwrite() failed: %s", strerror(errno));
+
+        lfs_t lfs = {0};
+        err = lfs_format(&lfs, &m_lfs_config);
+        CHECK_ERROR(err == 0, NULL, "lfs_format() failed: %d", err);
+    }
 
     result = &vfs_lfs;
 

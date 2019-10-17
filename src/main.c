@@ -19,6 +19,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -29,12 +30,26 @@
 #include "macro.h"
 #include "util.h"
 
-static const char *m_extract_path = "extracted/";
 static uint8_t m_buffer[4096];
+
+typedef enum {
+    ACTION_NONE = 0,
+    ACTION_EXTRACT,
+    ACTION_CREATE
+} action_t;
+
+struct options {
+    const char *directory;
+    const char *image;
+    action_t action;
+};
 
 static void usage(const char *name)
 {
-    fprintf(stderr, "Usage: %s <lfs image>\n", name);
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "   %s -i <lfs image> -d <extract directory> -x\n", name);
+    fprintf(stderr, "   %s -i <lfs image> -d <root directory> -c\n", name);
+    exit(EXIT_FAILURE);
 }
 
 static int process_file(struct vfs *vfs, struct vfs *target_vfs, const char *path)
@@ -71,7 +86,7 @@ done:
         }
     }
     if (out != NULL) {
-        int err = target_vfs->close(vfs, out);
+        int err = target_vfs->close(target_vfs, out);
         if (err != 0) {
             ERROR("target_vfs()->close() failed: %d", err);
         }
@@ -140,31 +155,81 @@ int main(int argc, char **argv)
 {
     int result = EXIT_SUCCESS;
 
-    bool mounted = false;
+    struct options options = {0};
+    struct vfs *vfs_lfs = NULL;
+    struct vfs *vfs_native = NULL;
 
-    if (argc != 2) {
-        usage(argv[0]);
-        result = EXIT_FAILURE;
-        goto done;
+    int opt = 0;
+    while ((opt = getopt(argc, argv, "i:d:cxh?")) != -1) {
+        switch (opt) {
+        case 'i':
+            options.image = optarg;
+            break;
+        case 'd':
+            options.directory = optarg;
+            break;
+        case 'c': {
+            CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -c OR -x");
+            options.action = ACTION_CREATE;
+        } break;
+        case 'x': {
+            CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -x OR -c");
+            options.action = ACTION_EXTRACT;
+        } break;
+        case 'h':
+        /* FALLTHROUGH */
+        case '?':
+        /* FALLTHROUGH */
+        default:
+            usage(argv[0]);
+            break;
+        }
     }
 
-    const char *filename = argv[1];
+    CHECK_ERROR(optind == argc, 1, "Invalid argument count");
+    CHECK_ERROR(options.image != NULL, 1, "-i required");
+    CHECK_ERROR(options.directory != NULL, 1, "-d required");
 
-    struct vfs *vfs_lfs = vfs_lfs_get(filename);
-    struct vfs *vfs_native = vfs_native_get(m_extract_path);
+    vfs_native = vfs_native_get(options.directory);
 
-    int err = vfs_lfs->mount(vfs_lfs);
-    CHECK_ERROR(err == 0, EXIT_FAILURE, "vfs->mount() failed: %d", err);
-    mounted = true;
+    switch (options.action) {
+        case ACTION_EXTRACT: {
+            vfs_lfs = vfs_lfs_get(options.image, false);
 
-    traversal(vfs_lfs, vfs_native, "/");
+            int err = vfs_lfs->mount(vfs_lfs);
+            CHECK_ERROR(err == 0, 2, "vfs->mount() failed: %d", err);
+
+            traversal(vfs_lfs, vfs_native, "/");
+        } break;
+        case ACTION_CREATE: {
+            vfs_lfs = vfs_lfs_get(options.image, true);
+            CHECK_ERROR(vfs_lfs != NULL, 2, "vfs_lfs_get() failed");
+
+            int err = vfs_lfs->mount(vfs_lfs);
+            CHECK_ERROR(err == 0, 2, "vfs->mount() failed: %d", err);
+
+            traversal(vfs_native, vfs_lfs, "/");
+        } break;
+        case ACTION_NONE:
+            ERROR("REQUIRED -x OR -c");
+            usage(argv[0]);
+            break;
+    }
 
 done:
-    if (mounted) {
+    if (vfs_lfs != NULL) {
         int err = vfs_lfs->unmount(vfs_lfs);
         if (err != 0) {
             ERROR("vfs->unmount: %d", err);
         }
     }
+
+    if (result != EXIT_SUCCESS) {
+        if (result == 1) {
+            usage(argv[0]);
+        }
+        result = EXIT_FAILURE;
+    }
+
     return result;
 }

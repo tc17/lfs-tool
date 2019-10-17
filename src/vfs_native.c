@@ -210,7 +210,7 @@ static struct vfs_dirent *vfs_readdir(struct vfs *vfs, void *dir)
 
     errno = 0;
     struct dirent *dirent = readdir(vfs_dir->dir);
-    CHECK_ERROR(dirent != NULL && errno != 0, NULL, "readdir() failed: %s", strerror(errno));
+    CHECK_ERROR(dirent != NULL || errno == 0, NULL, "readdir() failed: %s", strerror(errno));
 
     static struct vfs_dirent vfs_dirent = {0};
 
@@ -220,13 +220,8 @@ static struct vfs_dirent *vfs_readdir(struct vfs *vfs, void *dir)
     }
     else
     {
-        size_t bufsize = strlen(vfs_dir->dirname) + strlen(dirent->d_name) + 1;
-
-        buf = malloc(bufsize);
-        CHECK_ERROR(buf != NULL, NULL, "malloc() failed");
-
-        strcpy_s(buf, bufsize, vfs_dir->dirname);
-        strcat_s(buf, bufsize, dirent->d_name);
+        buf = append_dir_alloc(vfs_dir->dirname, dirent->d_name);
+        CHECK_ERROR(buf != NULL, NULL, "append_dir_alloc() failed");
 
         struct stat stat_ = {0};
 

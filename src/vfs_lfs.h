@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <stdbool.h>
+
 #include "vfs.h"
 
-struct vfs *vfs_lfs_get(const char *image);
+struct vfs *vfs_lfs_get(const char *image, bool write);
