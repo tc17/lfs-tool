@@ -17,9 +17,6 @@
 #include "vfs_lfs.h"
 
 #include "macro.h"
-#include "compat.h"
-#include "vfs.h"
-#include "lfs.h"
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -27,6 +24,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+
+#include "vfs.h"
+#include "lfs.h"
 
 #define BLOCK_SIZE 4096
 #define IO_SIZE 256
@@ -321,7 +321,8 @@ static struct vfs_dirent* vfs_readdir(struct vfs *vfs, void *dir)
     }
     else
     {
-        strcpy_s(dirent.name, sizeof(dirent.name), info.name);
+        CHECK_ERROR(strlen(info.name) < sizeof(dirent.name), NULL, "info.name is too small");
+        strncpy(dirent.name, info.name, sizeof(dirent.name) - 1);
         dirent.type = info.type == LFS_TYPE_REG ? VFS_TYPE_FILE : VFS_TYPE_DIR;
     }
 

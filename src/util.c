@@ -16,11 +16,11 @@
 
 #include "util.h"
 
-#include "macro.h"
-#include "compat.h"
-
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
+
+#include "macro.h"
 
 
 char *append_dir_alloc(const char *dir, const char *path)
@@ -35,11 +35,11 @@ char *append_dir_alloc(const char *dir, const char *path)
 
     CHECK_ERROR(result != NULL, NULL, "malloc() failed");
 
-    strcpy_s(result, result_size, dir);
+    strcpy(result, dir);
     if (strlen(dir) > 0 && dir[strlen(dir) - 1] != '/') {
-        strcat_s(result, result_size, "/");
+        strcat(result, "/");
     }
-    strcat_s(result, result_size, path);
+    strcat(result, path);
 
 done:
     return result;

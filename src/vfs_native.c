@@ -16,8 +16,6 @@
 
 #include "vfs_native.h"
 
-#include "compat.h"
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -237,7 +235,8 @@ static struct vfs_dirent *vfs_readdir(struct vfs *vfs, void *dir)
         CHECK_ERROR(err == 0, NULL, "stat() failed: %s", strerror(errno));
         CHECK_ERROR(S_ISREG(stat_.st_mode) || S_ISDIR(stat_.st_mode), NULL, "unknown file type: 0x%x", stat_.st_mode);
 
-        strcpy_s(vfs_dirent.name, sizeof(vfs_dirent.name), dirent->d_name);
+        CHECK_ERROR(strlen(dirent->d_name) < sizeof(vfs_dirent.name), NULL, "vfs_dirent.name is too small");
+        strncpy(vfs_dirent.name, dirent->d_name, sizeof(vfs_dirent.name) - 1);
         vfs_dirent.type = S_ISREG(stat_.st_mode) ? VFS_TYPE_FILE : VFS_TYPE_DIR;
     }
 
