@@ -26,7 +26,7 @@
 #include <errno.h>
 
 #include "vfs.h"
-#include "lfs.h"
+#include "lfs/lfs.h"
 
 #define BLOCK_SIZE 4096
 #define IO_SIZE 256
