@@ -99,7 +99,21 @@ done:
 
 static int fs_erase(const struct lfs_config *c, lfs_block_t block)
 {
-    return 0;
+    int result = 0;
+    struct context *context = c->context;
+
+    size_t offset = c->block_size * block;
+
+    int err = fseek(context->file, offset, SEEK_SET);
+    CHECK_ERROR(err == 0, -1, "fseek() failed: %d", err);
+
+    for (size_t i = 0; i < c->block_size; i++) {
+        int c = fputc(0xFF, context->file);
+        CHECK_ERROR(c == 0xff, -1, "fputc() failed: %d", c);
+    }
+
+done:
+    return result;
 }
 
 static int fs_sync(const struct lfs_config *c)
@@ -373,14 +387,13 @@ struct vfs *vfs_lfs_get(const char *image, bool write)
     m_lfs_config.block_count = 4059;
 
     if (write) {
-        int err = fseek(m_context.file, m_lfs_config.block_size * m_lfs_config.block_count - 1 , SEEK_SET);
-        CHECK_ERROR(err == 0, NULL, "fseek() failed: %s", strerror(errno));
-        uint8_t zero = 0;
-        size_t written = fwrite(&zero, 1, sizeof(zero), m_context.file);
-        CHECK_ERROR(written == sizeof(zero), NULL, "fwrite() failed: %s", strerror(errno));
+        for (size_t i = 0; i < m_lfs_config.block_count * m_lfs_config.block_size; i++) {
+            int c = fputc(0xff, m_context.file);
+            CHECK_ERROR(c == 0xFF, NULL, "fputc() failed: %d", c);
+        }
 
         lfs_t lfs = {0};
-        err = lfs_format(&lfs, &m_lfs_config);
+        int err = lfs_format(&lfs, &m_lfs_config);
         CHECK_ERROR(err == 0, NULL, "lfs_format() failed: %d", err);
     }
 
