@@ -62,6 +62,10 @@ static void *vfs_open(struct vfs *vfs, const char *pathname, int flags)
     path = append_dir_alloc(context->path, pathname);
     CHECK_ERROR(path != NULL, NULL, "append_dir_alloc() failed");
 
+#ifdef _WIN32
+    flags |= O_BINARY;
+#endif //_WIN32
+
     file->fd = open(path, flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     CHECK_ERROR(file->fd >= 0, NULL, "open() failed: %s", strerror(errno));
 
