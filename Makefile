@@ -55,9 +55,9 @@ $(BUILD_DIR)/%.o: %.c | $(BUILD_DIR)
 
 -include $(DEP)
 
-$(APP_OBJ): $(APP_SRC) | $(APP_DIRS)
+$(APP_OBJ): | $(APP_DIRS)
 
-$(TST_OBJ): $(TST_SRC) | $(TST_DIRS)
+$(TST_OBJ): | $(TST_DIRS)
 
 $(APP_DIRS):
 	mkdir -p $@
