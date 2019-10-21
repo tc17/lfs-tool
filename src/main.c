@@ -42,13 +42,14 @@ struct options {
     const char *directory;
     const char *image;
     action_t action;
+    size_t name_max;
 };
 
 static void usage(const char *name)
 {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "   %s -i <lfs image> -d <extract directory> -x\n", name);
-    fprintf(stderr, "   %s -i <lfs image> -d <root directory> -c\n", name);
+    fprintf(stderr, "   %s [-n <name max length>] -i <lfs image> -d <extract directory> -x\n", name);
+    fprintf(stderr, "   %s [-n <name max length>] -i <lfs image> -d <root directory> -c\n", name);
     exit(EXIT_FAILURE);
 }
 
@@ -160,7 +161,7 @@ int main(int argc, char **argv)
     struct vfs *vfs_native = NULL;
 
     int opt = 0;
-    while ((opt = getopt(argc, argv, "i:d:cxh?")) != -1) {
+    while ((opt = getopt(argc, argv, "i:d:n:cxh?")) != -1) {
         switch (opt) {
         case 'i':
             options.image = optarg;
@@ -175,6 +176,12 @@ int main(int argc, char **argv)
         case 'x': {
             CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -x OR -c");
             options.action = ACTION_EXTRACT;
+        } break;
+        case 'n': {
+            char *endptr = NULL;
+            errno = 0;
+            options.name_max = strtoul(optarg, &endptr, 10);
+            CHECK_ERROR(endptr != optarg && errno == 0, 1, "invalid number: %s", optarg);
         } break;
         case 'h':
         /* FALLTHROUGH */
@@ -194,7 +201,7 @@ int main(int argc, char **argv)
 
     switch (options.action) {
         case ACTION_EXTRACT: {
-            vfs_lfs = vfs_lfs_get(options.image, false);
+            vfs_lfs = vfs_lfs_get(options.image, false, options.name_max);
 
             int err = vfs_lfs->mount(vfs_lfs);
             CHECK_ERROR(err == 0, 2, "vfs->mount() failed: %d", err);
@@ -202,7 +209,7 @@ int main(int argc, char **argv)
             traversal(vfs_lfs, vfs_native, "/");
         } break;
         case ACTION_CREATE: {
-            vfs_lfs = vfs_lfs_get(options.image, true);
+            vfs_lfs = vfs_lfs_get(options.image, true, options.name_max);
             CHECK_ERROR(vfs_lfs != NULL, 2, "vfs_lfs_get() failed");
 
             int err = vfs_lfs->mount(vfs_lfs);

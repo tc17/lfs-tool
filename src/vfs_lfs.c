@@ -376,7 +376,7 @@ static struct vfs vfs_lfs = {
     .mkdir = vfs_mkdir
 };
 
-struct vfs *vfs_lfs_get(const char *image, bool write)
+struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max)
 {
     struct vfs *result = NULL;
 
@@ -385,6 +385,7 @@ struct vfs *vfs_lfs_get(const char *image, bool write)
 
     m_lfs_config.context = &m_context;
     m_lfs_config.block_count = 4059;
+    m_lfs_config.name_max = name_max;
 
     if (write) {
         for (size_t i = 0; i < m_lfs_config.block_count * m_lfs_config.block_size; i++) {

@@ -18,4 +18,4 @@
 
 #include "vfs.h"
 
-struct vfs *vfs_lfs_get(const char *image, bool write);
+struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max);
