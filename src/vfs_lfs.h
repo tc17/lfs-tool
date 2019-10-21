@@ -18,4 +18,5 @@
 
 #include "vfs.h"
 
-struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max);
+struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max, size_t io_size, size_t block_size,
+                        size_t block_count);

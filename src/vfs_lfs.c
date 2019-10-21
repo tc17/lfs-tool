@@ -376,7 +376,8 @@ static struct vfs vfs_lfs = {
     .mkdir = vfs_mkdir
 };
 
-struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max)
+struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max, size_t io_size, size_t block_size,
+                        size_t block_count)
 {
     struct vfs *result = NULL;
 
@@ -384,7 +385,19 @@ struct vfs *vfs_lfs_get(const char *image, bool write, size_t name_max)
     CHECK_ERROR(m_context.file != NULL, NULL, "fopen() failed: %s", strerror(errno));
 
     m_lfs_config.context = &m_context;
-    m_lfs_config.block_count = 4059;
+
+    if (io_size != 0) {
+        m_lfs_config.read_size = io_size;
+        m_lfs_config.prog_size = io_size;
+        m_lfs_config.cache_size = io_size;
+        m_lfs_config.lookahead_size = io_size;
+    }
+
+    if (block_size != 0) {
+        m_lfs_config.block_size = block_size;
+    }
+
+    m_lfs_config.block_count = block_count != 0 ? block_count : 4059;
     m_lfs_config.name_max = name_max;
 
     if (write) {

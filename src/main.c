@@ -43,13 +43,24 @@ struct options {
     const char *image;
     action_t action;
     size_t name_max;
+    size_t io_size;
+    size_t block_size;
+    size_t block_count;
 };
 
 static void usage(const char *name)
 {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "   %s [-n <name max length>] -i <lfs image> -d <extract directory> -x\n", name);
-    fprintf(stderr, "   %s [-n <name max length>] -i <lfs image> -d <root directory> -c\n", name);
+    fprintf(stderr, "   %s [-n <max name length>] [-s <io size>] [-b <block size>] [-a <number of blocks>] -i <lfs image> -d <directory> (-x | -c)\n", name);
+    fprintf(stderr, "   \n");
+    fprintf(stderr, "   -n <max name length>   Maximum file name length.\n");
+    fprintf(stderr, "   -s <io size>           IO size [default: 512].\n");
+    fprintf(stderr, "   -b <block size>        Block size [default: 4096].\n");
+    fprintf(stderr, "   -a <number of blocks>  Number of blocks [default: 4059].\n");
+    fprintf(stderr, "   -i <lfs image>         Path to lfs image.\n");
+    fprintf(stderr, "   -d <directory>         Path to root directory.\n");
+    fprintf(stderr, "   -x                     Extract files from image.\n");
+    fprintf(stderr, "   -c                     Create image.\n");
     exit(EXIT_FAILURE);
 }
 
@@ -152,6 +163,26 @@ done:
     return result;
 }
 
+static int string_to_size(const char *str, size_t *size)
+{
+    int result = 0;
+
+    CHECK_ERROR(str != NULL, -1, "str == NULL");
+    CHECK_ERROR(size != NULL, -1, "size == NULL");
+
+    char *endptr = NULL;
+    errno = 0;
+
+    unsigned long value = strtoul(str, &endptr, 10);
+    CHECK_ERROR(endptr != str && errno == 0, -1, "invalid number: %s", str);
+
+    CHECK_ERROR(value <= SIZE_MAX, -1, "conversion failed, size_t is too small");
+    *size = (size_t)value;
+
+done:
+    return result;
+}
+
 int main(int argc, char **argv)
 {
     int result = EXIT_SUCCESS;
@@ -161,35 +192,41 @@ int main(int argc, char **argv)
     struct vfs *vfs_native = NULL;
 
     int opt = 0;
-    while ((opt = getopt(argc, argv, "i:d:n:cxh?")) != -1) {
+    while ((opt = getopt(argc, argv, "i:d:n:s:b:a:cxh?")) != -1) {
         switch (opt) {
-        case 'i':
-            options.image = optarg;
-            break;
-        case 'd':
-            options.directory = optarg;
-            break;
-        case 'c': {
-            CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -c OR -x");
-            options.action = ACTION_CREATE;
-        } break;
-        case 'x': {
-            CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -x OR -c");
-            options.action = ACTION_EXTRACT;
-        } break;
-        case 'n': {
-            char *endptr = NULL;
-            errno = 0;
-            options.name_max = strtoul(optarg, &endptr, 10);
-            CHECK_ERROR(endptr != optarg && errno == 0, 1, "invalid number: %s", optarg);
-        } break;
-        case 'h':
-        /* FALLTHROUGH */
-        case '?':
-        /* FALLTHROUGH */
-        default:
-            usage(argv[0]);
-            break;
+            case 'i':
+                options.image = optarg;
+                break;
+            case 'd':
+                options.directory = optarg;
+                break;
+            case 'c': {
+                CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -c OR -x");
+                options.action = ACTION_CREATE;
+            } break;
+            case 'x': {
+                CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -x OR -c");
+                options.action = ACTION_EXTRACT;
+            } break;
+            case 'n': {
+                CHECK_ERROR(string_to_size(optarg, &options.name_max) == 0, 1, "string_to_size() failed");
+            } break;
+            case 's': {
+                CHECK_ERROR(string_to_size(optarg, &options.io_size) == 0, 1, "string_to_size() failed");
+            } break;
+            case 'b': {
+                CHECK_ERROR(string_to_size(optarg, &options.block_size) == 0, 1, "string_to_size() failed");
+            } break;
+            case 'a': {
+                CHECK_ERROR(string_to_size(optarg, &options.block_count) == 0, 1, "string_to_size() failed");
+            } break;
+            case 'h':
+            /* FALLTHROUGH */
+            case '?':
+            /* FALLTHROUGH */
+            default:
+                usage(argv[0]);
+                break;
         }
     }
 
@@ -201,7 +238,8 @@ int main(int argc, char **argv)
 
     switch (options.action) {
         case ACTION_EXTRACT: {
-            vfs_lfs = vfs_lfs_get(options.image, false, options.name_max);
+            vfs_lfs = vfs_lfs_get(options.image, false, options.name_max, options.io_size, options.block_size,
+                                  options.block_count);
 
             int err = vfs_lfs->mount(vfs_lfs);
             CHECK_ERROR(err == 0, 2, "vfs->mount() failed: %d", err);
@@ -209,7 +247,8 @@ int main(int argc, char **argv)
             traversal(vfs_lfs, vfs_native, "/");
         } break;
         case ACTION_CREATE: {
-            vfs_lfs = vfs_lfs_get(options.image, true, options.name_max);
+            vfs_lfs = vfs_lfs_get(options.image, true, options.name_max, options.io_size, options.block_size,
+                                  options.block_count);
             CHECK_ERROR(vfs_lfs != NULL, 2, "vfs_lfs_get() failed");
 
             int err = vfs_lfs->mount(vfs_lfs);
