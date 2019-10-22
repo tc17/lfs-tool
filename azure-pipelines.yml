@@ -1,0 +1,33 @@
+# C/C++ with GCC
+# Build your C/C++ project with GCC using make.
+# Add steps that publish test results, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/apps/c-cpp/gcc
+
+trigger:
+- master
+
+strategy:
+  matrix:
+    linux:
+      imageName: "ubuntu-16.04"
+    mac:
+      imageName: "macos-10.13"
+    windows:
+      imageName: "vs2017-win2016"
+  maxParallel: 3
+
+pool:
+  vmImage: $(imageName)
+
+steps:
+- script: cinst msys2 --params "/InstallDir=C:/msys64" --no-progress
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: install msys2
+
+- script: C:\msys64\usr\bin\bash --login -c "pacman -S --noconfirm mingw-w64-i686-gcc mingw-w64-i686-make"
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: install MinGW-w64-gcc, make
+
+- script:
+    make
+  displayName: 'make'
