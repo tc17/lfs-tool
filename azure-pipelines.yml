@@ -20,6 +20,14 @@ pool:
   vmImage: $(imageName)
 
 steps:
-- script: |
+- script: cinst msys2 --params "/InstallDir=C:/msys64" --no-progress
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: install msys2
+
+- script: C:\msys64\usr\bin\bash --login -c "pacman -S --noconfirm mingw-w64-i686-gcc mingw-w64-i686-make"
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: install MinGW-w64-gcc, make
+
+- script:
     make
   displayName: 'make'
