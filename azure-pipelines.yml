@@ -28,7 +28,7 @@ steps:
   condition: eq( variables['Agent.OS'], 'Windows_NT' )
   displayName: install MinGW-w64-gcc, make
 
-- script: C:\msys64\usr\bin\bash --login -c "cd $(Build.Repository.LocalPath) && make"
+- script: C:\msys64\usr\bin\bash --login -c "make"
   condition: eq( variables['Agent.OS'], 'Windows_NT' )
   displayName: make
   env:
