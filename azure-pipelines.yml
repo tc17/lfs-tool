@@ -9,7 +9,7 @@ trigger:
 strategy:
   matrix:
     linux:
-      imageName: "ubuntu-16.04"
+      imageName: "ubuntu-18.04"
     mac:
       imageName: "macos-10.13"
     windows:
@@ -28,6 +28,13 @@ steps:
   condition: eq( variables['Agent.OS'], 'Windows_NT' )
   displayName: install MinGW-w64-gcc, make
 
-- script:
+- script: C:\msys64\usr\bin\bash --login -c "cd $(Build.Repository.LocalPath) && make"
+  condition: eq( variables['Agent.OS'], 'Windows_NT' )
+  displayName: make
+  env:
+    MSYSTEM: MINGW32
+
+- script: |
     make
   displayName: 'make'
+  condition: ne( variables['Agent.OS'], 'Windows_NT')
