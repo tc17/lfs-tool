@@ -33,6 +33,7 @@ steps:
   displayName: mingw32-make
   env:
     MSYSTEM: MINGW32
+    HOME: $(Build.SourcesDirectory)
 
 - script: |
     make
