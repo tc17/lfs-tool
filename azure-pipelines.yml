@@ -12,11 +12,13 @@ jobs:
     matrix:
       linux:
         imageName: "ubuntu-18.04"
+        flags: ""
       mac:
         imageName: "macos-10.13"
         flags: "NOSTATIC=1"
       windows:
         imageName: "vs2017-win2016"
+        flags: ""
     maxParallel: 3
 
   pool:
@@ -39,7 +41,7 @@ jobs:
       HOME: $(Build.SourcesDirectory)
 
   - script: |
-      make '$(flags)'
+      make $(flags)
     displayName: 'make'
     condition: ne( variables['Agent.OS'], 'Windows_NT')
 
