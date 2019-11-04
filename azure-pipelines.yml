@@ -50,7 +50,7 @@ steps:
 
 - task: GitHubRelease@1
   inputs:
-    gitHubConnection: tc17
+    gitHubConnection: lfs-tool
     repositoryName: '$(Build.Repository.Name)'
     action: 'create'
     target: '$(Build.SourceVersion)'
