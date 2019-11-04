@@ -52,8 +52,9 @@ jobs:
         lfs-tool
         lfs-tool.exe
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
-
-  - publish: '$(Build.ArtifactStagingDirectory)'
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
 
 - job: publish
   dependsOn: build
