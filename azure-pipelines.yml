@@ -62,7 +62,14 @@ jobs:
   - task: DownloadPipelineArtifact@2
     inputs:
       buildType: current
-      targetPath: '$(Build.ArtifactStagingDirectory)'
+      targetPath: '$(Build.ArtifactStagingDirectory)/artifacts'
+
+  - task: ArchiveFiles@2
+    inputs:
+      rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/artifacts'
+      includeRootFolder: true
+      archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+
   - task: GitHubRelease@1
     inputs:
       gitHubConnection: lfs-tool
