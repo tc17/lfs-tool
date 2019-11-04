@@ -39,3 +39,22 @@ steps:
     make
   displayName: 'make'
   condition: ne( variables['Agent.OS'], 'Windows_NT')
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)'
+    Contents: |
+      lfs-tool
+      lfs-tool.exe
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+    - task: GitHubRelease@1
+      inputs:
+        repositoryName: '$(Build.Repository.Name)'
+        action: 'create'
+        target: '$(Build.SourceVersion)'
+        tagSource: 'gitTag'
+        changeLogCompareToRelease: 'lastFullRelease'
+        changeLogType: 'commitBased'
+
+
