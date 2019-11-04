@@ -61,6 +61,7 @@ jobs:
   steps:
   - task: DownloadPipelineArtifact@2
     inputs:
+      buildType: current
       targetPath: '$(Build.ArtifactStagingDirectory)'
   - task: GitHubRelease@1
     inputs:
