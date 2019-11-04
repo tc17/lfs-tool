@@ -6,8 +6,13 @@ CFLAGS += -Wfloat-equal -Wlogical-op -Wshift-overflow=2 -Wduplicated-cond -Wcast
 #CFLAGS += -fsanitize=address -fsanitize=undefined
 CFLAGS += -Wno-unused-parameter
 CFLAGS += -Os -std=c11
+
+ifndef NOSTATIC
 CFLAGS += -static
+endif
+
 CXXFLAGS += $(CFLAGS)
+
 
 SRCDIR = src
 TSTDIR = tests
