@@ -27,9 +27,17 @@
 
 #include "vfs.h"
 #include "lfs/lfs.h"
+#include "mbedtls/aes.h"
 
 #define BLOCK_SIZE 4096
 #define IO_SIZE 256
+#define AES_KEY_SIZE (16)
+#define AES_KEY_SIZE_BITS (16 * 8)
+#define INIT_VECTOR_SIZE (AES_KEY_SIZE)
+#define EXT_FS_START_OFFSET 0x025000
+
+extern uint8_t m_aes_key[];
+extern bool m_aes_enable;
 
 struct context
 {
@@ -58,37 +66,66 @@ static struct lfs_config m_lfs_config = {
 
 static struct context m_context = {0};
 
-static int fs_read(const struct lfs_config *c, lfs_block_t block,
-                   lfs_off_t off, void *buffer, lfs_size_t size)
+static int fs_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size)
 {
     int result = 0;
     struct context *context = c->context;
+    mbedtls_aes_context aes_ctx = {0};
+    uint8_t iv[INIT_VECTOR_SIZE] = {0};
+    uint8_t key[AES_KEY_SIZE] = {0};
+    uint8_t aes_buff[IO_SIZE] = {0};
 
     size_t offset = c->block_size * block + off;
 
     int err = fseek(context->file, offset, SEEK_SET);
     CHECK_ERROR(err == 0, -1, "fseek() failed: %d", err);
 
-    size_t bytes = fread(buffer, 1, size, context->file);
+    size_t bytes = fread(aes_buff, 1, size, context->file);
     CHECK_ERROR(bytes == size, -1, "fread() failed: off: %u, size: %u, bytes: %u", off, size, bytes);
 
-    //INFO("read block: %u, off: %u", block, off);
-    //INFO("read offset: %u, size: %u", offset, size);
+    if (m_aes_enable) {
+        offset += EXT_FS_START_OFFSET;
+        memcpy(key, m_aes_key, sizeof(key));
+        memcpy(iv, &offset, sizeof(offset));
+        mbedtls_aes_init(&aes_ctx);
+        err = mbedtls_aes_setkey_dec(&aes_ctx, key, AES_KEY_SIZE_BITS);
+        CHECK_ERROR(err == 0, err, "Invalid key length: %u.", AES_KEY_SIZE_BITS);
+        err = mbedtls_aes_crypt_cbc(&aes_ctx, MBEDTLS_AES_DECRYPT, IO_SIZE, iv, aes_buff, buffer);
+        CHECK_ERROR(err == 0, err, "Invalid data input length: %u.", IO_SIZE);
+    }
+
+    // INFO("read block: %u, off: %u", block, off);
+    // INFO("read offset: %u, size: %u", offset, size);
 
 done:
     return result;
 }
 
-static int fs_prog(const struct lfs_config *c, lfs_block_t block,
-                   lfs_off_t off, const void *buffer, lfs_size_t size)
+static int fs_prog(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size)
 {
     int result = 0;
     struct context *context = c->context;
+    mbedtls_aes_context aes_ctx = {0};
+    uint8_t iv[INIT_VECTOR_SIZE] = {0};
+    uint8_t key[AES_KEY_SIZE] = {0};
+    uint8_t aes_buff[IO_SIZE] = {0};
 
     size_t offset = c->block_size * block + off;
 
     int err = fseek(context->file, offset, SEEK_SET);
     CHECK_ERROR(err == 0, -1, "fseek() failed: %d", err);
+
+    if (m_aes_enable) {
+        offset += EXT_FS_START_OFFSET;
+        memcpy(key, m_aes_key, sizeof(key));
+        memcpy(iv, &offset, sizeof(offset));
+        mbedtls_aes_init(&aes_ctx);
+        err = mbedtls_aes_setkey_enc(&aes_ctx, key, AES_KEY_SIZE_BITS);
+        CHECK_ERROR(err == 0, err, "Invalid key length: %u.", AES_KEY_SIZE_BITS);
+        err = mbedtls_aes_crypt_cbc(&aes_ctx, MBEDTLS_AES_ENCRYPT, IO_SIZE, iv, buffer, aes_buff);
+        CHECK_ERROR(err == 0, err, "Invalid data input length: %u.", IO_SIZE);
+        memcpy(buffer, aes_buff, size);
+    }
 
     size_t bytes = fwrite(buffer, 1, size, context->file);
     CHECK_ERROR(bytes == size, -1, "fwrite() failed");

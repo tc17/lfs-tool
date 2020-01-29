@@ -1,5 +1,6 @@
 CPPFLAGS += -MD -MP
 CPPFLAGS += -D_XOPEN_SOURCE=700
+CPPFLAGS += -D_FILE_OFFSET_BITS=64
 CFLAGS += -Wall -Wextra -fexceptions -fstack-protector-strong -Werror=implicit-function-declaration
 CFLAGS += -Wfloat-equal -Wlogical-op -Wshift-overflow=2 -Wduplicated-cond -Wcast-qual -Wcast-align
 #CFLAGS += -Wconversion -fstack-clash-protection 
@@ -18,7 +19,7 @@ SRCDIR = src
 TSTDIR = tests
 BUILD_DIR = build
 
-CPPFLAGS += -I$(SRCDIR)
+CPPFLAGS += -I$(SRCDIR) -I$(SRCDIR)/mbedtls/include
 
 vpath %.c $(SRCDIR)
 vpath %.c $(TSTDIR)
@@ -28,7 +29,7 @@ TEST_TARGET = test
 
 MAIN = main.c
 
-src_search = $(patsubst $(1)/%,%,$(shell find $(1) -name *.c))
+src_search = $(patsubst $(1)/%,%,$(shell find $(1) -name *.c -not -path "*/mbedtls/programs/*"))
 dir_search = $(filter-out ./,$(sort $(dir $(1))))
 
 APP_SRC = $(call src_search,$(SRCDIR))
@@ -73,6 +74,7 @@ $(TST_DIRS):
 $(BUILD_DIR):
 	mkdir -p $@
 
-.PHONY: clean $(TEST_TARGET)
+.PHONY: all clean $(TEST_TARGET)
 clean:
 	$(RM) -r $(DEP) $(TARGET) $(OBJ) $(APP_DIRS) $(TEST_TARGET) $(TST_DIRS) $(BUILD_DIR)
+all: $(TARGET)
