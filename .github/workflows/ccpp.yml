@@ -8,10 +8,20 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-18.04
+    runs-on: ${{matrix.os}}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, windows-2019, macos-10.15]
 
     steps:
     - uses: actions/checkout@v2
     - name: make
       run: make
+    - name: upload
+      uses: actions/upload-artifact@v1
+      with:
+        name: lfs-tool
+        path: lfs-tool
+      
+    
