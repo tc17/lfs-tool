@@ -32,6 +32,10 @@
 
 static uint8_t m_buffer[4096];
 
+#define AES_KEY_TABLE_SIZE (128)
+uint8_t m_aes_key[AES_KEY_TABLE_SIZE];
+bool m_aes_enable = false;
+
 typedef enum {
     ACTION_NONE = 0,
     ACTION_EXTRACT,
@@ -41,6 +45,7 @@ typedef enum {
 struct options {
     const char *directory;
     const char *image;
+    const char *keyfile;
     action_t action;
     size_t name_max;
     size_t io_size;
@@ -51,7 +56,7 @@ struct options {
 static void usage(const char *name)
 {
     fprintf(stderr, "Usage:\n");
-    fprintf(stderr, "   %s [-n <max name length>] [-s <io size>] [-b <block size>] [-a <number of blocks>] -i <lfs image> -d <directory> (-x | -c)\n", name);
+    fprintf(stderr, "   %s [-n <max name length>] [-s <io size>] [-b <block size>] [-a <number of blocks>] [-k <key file>] -i <lfs image> -d <directory> (-x | -c)\n", name);
     fprintf(stderr, "   \n");
     fprintf(stderr, "   -n <max name length>   Maximum file name length.\n");
     fprintf(stderr, "   -s <io size>           IO size [default: 512].\n");
@@ -59,6 +64,7 @@ static void usage(const char *name)
     fprintf(stderr, "   -a <number of blocks>  Number of blocks [default: 4059].\n");
     fprintf(stderr, "   -i <lfs image>         Path to lfs image.\n");
     fprintf(stderr, "   -d <directory>         Path to root directory.\n");
+    fprintf(stderr, "   -k <key file>          Path to key file if lfs image was encrypted\n");
     fprintf(stderr, "   -x                     Extract files from image.\n");
     fprintf(stderr, "   -c                     Create image.\n");
     exit(EXIT_FAILURE);
@@ -183,6 +189,20 @@ done:
     return result;
 }
 
+static int read_key_file(const char *name)
+{
+    int result = 0;
+    CHECK_ERROR(name != NULL, -1, "name == NULL");
+
+    FILE *fd = fopen(name, "rb");
+    CHECK_ERROR(fd != NULL, -1, "Filed to open file: %s.", name);
+    size_t read_bytes = fread(m_aes_key, 1, sizeof(m_aes_key), fd);
+    CHECK_ERROR(read_bytes == sizeof(m_aes_key), -1, "Filed to read keys from file: %s.", name);
+    m_aes_enable = true;
+done:
+    return result;
+}
+
 int main(int argc, char **argv)
 {
     int result = EXIT_SUCCESS;
@@ -192,13 +212,16 @@ int main(int argc, char **argv)
     struct vfs *vfs_native = NULL;
 
     int opt = 0;
-    while ((opt = getopt(argc, argv, "i:d:n:s:b:a:cxh?")) != -1) {
+    while ((opt = getopt(argc, argv, "i:d:k:n:s:b:a:cxh?")) != -1) {
         switch (opt) {
             case 'i':
                 options.image = optarg;
                 break;
             case 'd':
                 options.directory = optarg;
+                break;
+            case 'k':
+                options.keyfile = optarg;
                 break;
             case 'c': {
                 CHECK_ERROR(options.action == ACTION_NONE, 1, "REQUIRED -c OR -x");
@@ -233,6 +256,10 @@ int main(int argc, char **argv)
     CHECK_ERROR(optind == argc, 1, "Invalid argument count");
     CHECK_ERROR(options.image != NULL, 1, "-i required");
     CHECK_ERROR(options.directory != NULL, 1, "-d required");
+
+    if (options.keyfile != NULL) {
+        CHECK_ERROR(read_key_file(options.keyfile) == 0, 1, "Failed to read keyfile: %s.", options.keyfile);
+    }
 
     vfs_native = vfs_native_get(options.directory);
 
